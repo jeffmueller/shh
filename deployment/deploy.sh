@@ -170,19 +170,31 @@ if [ -n "$SAVED_DB" ]; then
     echo "Restored secrets.db after deploy"
 fi
 
-# Rebuild native modules for Pi architecture (better-sqlite3, bcryptjs is pure JS)
-echo "Rebuilding native modules for this architecture..."
+# Install better-sqlite3 fresh so npm fetches the prebuilt binary for THIS
+# architecture (the Mac-built binary inside the standalone bundle won't load
+# on the Pi). Then replace the standalone's hashed copy with the native one.
+echo "Installing native better-sqlite3 for this architecture..."
 cd ~/shh/app
-npm rebuild better-sqlite3 2>&1 || echo "Warning: better-sqlite3 rebuild failed"
+npm install better-sqlite3 --no-save --no-audit --no-fund 2>&1 | tail -5
 
-# Copy rebuilt binary into the standalone server's hashed copy if present
+NATIVE_BIN=~/shh/app/node_modules/better-sqlite3/build/Release/better_sqlite3.node
+if [ ! -f "$NATIVE_BIN" ]; then
+    echo "ERROR: native better-sqlite3 binary not found at $NATIVE_BIN"
+    exit 1
+fi
+
+echo "Replacing macOS binary in standalone bundle..."
+REPLACED=0
 for bsq_dir in ~/shh/app/.next/node_modules/better-sqlite3-*/; do
     if [ -d "$bsq_dir" ]; then
-        echo "Copying rebuilt binary to standalone: $bsq_dir"
-        cp ~/shh/app/node_modules/better-sqlite3/build/Release/better_sqlite3.node \
-           "${bsq_dir}build/Release/better_sqlite3.node" 2>/dev/null || true
+        cp -f "$NATIVE_BIN" "${bsq_dir}build/Release/better_sqlite3.node"
+        echo "  -> ${bsq_dir}"
+        REPLACED=$((REPLACED+1))
     fi
 done
+if [ "$REPLACED" -eq 0 ]; then
+    echo "WARNING: no better-sqlite3-* dirs found under .next/node_modules"
+fi
 
 echo "Deployment extracted successfully"
 ENDSSH
