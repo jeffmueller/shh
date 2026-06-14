@@ -91,6 +91,11 @@ EOF
 sudo systemctl daemon-reload
 sudo systemctl enable shh
 
+# nginx (www-data) serves /_next/static straight from the deploy user's home
+# directory via group permissions, so it must belong to that user's group.
+echo "Adding www-data to the $PI_USER group (static asset access)..."
+sudo usermod -aG $PI_USER www-data
+
 # ─── Step 1: Install HTTP-only nginx config (for certbot) ───────────────
 
 echo ""
@@ -123,7 +128,9 @@ echo "Installing full HTTPS nginx config..."
 sudo mv ~/shh-nginx-full.conf /etc/nginx/sites-available/shh
 
 sudo nginx -t
-sudo systemctl reload nginx
+# restart (not reload) so nginx's master process picks up www-data's new
+# group membership added above.
+sudo systemctl restart nginx
 
 echo ""
 echo "═══════════════════════════════════════════════"

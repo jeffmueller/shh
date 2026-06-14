@@ -196,6 +196,14 @@ if [ "$REPLACED" -eq 0 ]; then
     echo "WARNING: no better-sqlite3-* dirs found under .next/node_modules"
 fi
 
+# Let nginx read static assets directly from disk for the /_next/static alias
+# in nginx.conf. nginx (www-data) is a member of the deploy user's group (added
+# in setup-pi.sh / the --update-nginx step below), so grant that group traverse
+# on the home-dir chain and read on the asset tree. Assets are public anyway.
+echo "Granting the deploy group read access to static assets..."
+chmod g+x "$HOME" "$HOME/shh" "$HOME/shh/app" "$HOME/shh/app/.next" 2>/dev/null || true
+chmod -R g+rX "$HOME/shh/app/.next/static" 2>/dev/null || true
+
 echo "Deployment extracted successfully"
 ENDSSH
 
@@ -209,7 +217,27 @@ if [ "$UPDATE_NGINX" = true ]; then
     scp -q "$SCRIPT_DIR/conf/nginx.conf" "$PI_USER@$PI_HOST":~/shh-nginx.conf
     ssh "$PI_USER@$PI_HOST" << 'ENDSSH'
 sudo mv ~/shh-nginx.conf /etc/nginx/sites-available/shh
-sudo nginx -t && sudo systemctl reload nginx
+
+# nginx (www-data) serves /_next/static straight from the deploy user's home
+# via group permissions, so it must belong to that group. Adding a user to a
+# group only takes effect for a NEW master process, so restart (not reload)
+# nginx the one time membership changes; a reload is enough thereafter.
+DEPLOY_GROUP=$(id -gn)
+if id -nG www-data 2>/dev/null | tr ' ' '\n' | grep -qx "$DEPLOY_GROUP"; then
+    NEED_RESTART=0
+else
+    sudo usermod -aG "$DEPLOY_GROUP" www-data
+    echo "Added www-data to '$DEPLOY_GROUP' group"
+    NEED_RESTART=1
+fi
+
+sudo nginx -t
+if [ "$NEED_RESTART" = 1 ]; then
+    sudo systemctl restart nginx
+    echo "nginx restarted (picked up new group membership)"
+else
+    sudo systemctl reload nginx
+fi
 echo "nginx config updated"
 ENDSSH
     print_success "nginx updated"
