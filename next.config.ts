@@ -23,6 +23,16 @@ const nextConfig: NextConfig = {
       { source: "/s/:path*", headers: SECRET_HEADERS },
       { source: "/created/:path*", headers: SECRET_HEADERS },
       { source: "/api/:path*", headers: SECRET_HEADERS },
+      // Browsers cap service-worker script caching at 24h; no-cache makes an
+      // updated worker (and any change to its denylist) take effect on the
+      // next visit instead of up to a day later.
+      {
+        source: "/sw.js",
+        headers: [
+          { key: "Cache-Control", value: "no-cache, must-revalidate, max-age=0" },
+          { key: "Service-Worker-Allowed", value: "/" },
+        ],
+      },
     ];
   },
 };

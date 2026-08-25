@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
 import Link from "next/link";
+import ServiceWorkerRegistrar from "@/components/ServiceWorkerRegistrar";
 import "./globals.css";
 
 // Fonts vendored under app/fonts/ so the build does not depend on Google's CDN.
@@ -34,6 +35,17 @@ export const metadata: Metadata = {
   title: "shh. — share a secret",
   description: "Self-destructing secret sharing.",
   robots: { index: false, follow: false },
+  applicationName: "shh.",
+  // iOS ignores the web app manifest, so standalone mode + the home-screen
+  // icon have to be declared separately.
+  appleWebApp: {
+    capable: true,
+    title: "shh.",
+    statusBarStyle: "black-translucent",
+  },
+  icons: {
+    apple: "/icons/apple-touch-icon.png",
+  },
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
@@ -59,6 +71,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
             secrets are encrypted. the decryption key lives only in the URL.
           </div>
         </footer>
+        <ServiceWorkerRegistrar />
       </body>
     </html>
   );

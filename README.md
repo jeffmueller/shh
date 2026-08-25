@@ -17,6 +17,33 @@ Self-destructing secret sharing. Like OneTimeSecret, self-hosted on a Raspberry 
 - **Server compromise during reveal**: an attacker controlling the server can intercept the decrypted plaintext. This app cannot defend against that.
 - **XSS**: secrets are rendered as text inside `<pre>` (React auto-escapes). CSP forbids inline scripts. There is no rich-text rendering.
 - **Link-preview burn**: viewing requires a click, so chat clients that prefetch URLs (Slack, iMessage, etc.) won't burn first-view secrets.
+- **On-device cache**: the service worker's cache is opt-in, not opt-out. Only `/_next/static/*` (immutable build output) and `/icons/*` are ever written to CacheStorage. `/s/*`, `/created/*` and `/api/*` are hard-denied before any caching strategy runs, and *no* navigation response is cached — so a revealed secret can't be replayed from disk after it self-destructs.
+
+## Install as an app (PWA)
+
+The app is installable on desktop and mobile: `app/manifest.ts` serves
+`/manifest.webmanifest`, and `public/sw.js` provides the offline behaviour that
+browsers require before offering an install prompt.
+
+The service worker is registered in production only
+(`components/ServiceWorkerRegistrar.tsx`). Under `next dev` it actively
+unregisters instead, because it serves `/_next/static/*` cache-first — true of a
+production build, but not of dev, where those URLs change on every recompile.
+
+Offline, every navigation falls back to `/offline`. Nothing else is cached; see
+the on-device cache note in the threat model above. After changing the caching
+rules, bump `CACHE_VERSION` in `public/sw.js` to invalidate existing clients.
+
+Icons are generated from `public/icons/icon.svg` and `public/icons/maskable.svg`:
+
+```sh
+cd public/icons
+rsvg-convert -w 192 -h 192 icon.svg     -o icon-192.png
+rsvg-convert -w 512 -h 512 icon.svg     -o icon-512.png
+rsvg-convert -w 192 -h 192 maskable.svg -o maskable-192.png
+rsvg-convert -w 512 -h 512 maskable.svg -o maskable-512.png
+rsvg-convert -w 180 -h 180 maskable.svg -o apple-touch-icon.png
+```
 
 ## Local development
 
