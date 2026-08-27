@@ -1,18 +1,22 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
 import { ArrowLeft, ExternalLink, ShieldCheck } from "lucide-react";
 import CopyButton from "./CopyButton";
+import { useUrlFragment } from "./useUrlHash";
 
 export default function CreatedView({ id }: { id: string }) {
-  const [url, setUrl] = useState<string | null>(null);
+  const fragment = useUrlFragment();
 
-  useEffect(() => {
-    const hash = window.location.hash.replace(/^#/, "");
-    if (!hash) return;
-    setUrl(`${window.location.origin}/s/${id}#${hash}`);
-  }, [id]);
+  // `null` means the fragment isn't readable yet (server render / hydration).
+  // Rendering the error panel then would flash it on every visit before the
+  // real URL appeared.
+  if (fragment === null) {
+    return <div className="panel data-mono text-gray-400">Loading…</div>;
+  }
+
+  // Safe to touch `window` here: a non-null fragment means we are on the client.
+  const url = fragment ? `${window.location.origin}/s/${id}#${fragment}` : null;
 
   if (!url) {
     return (

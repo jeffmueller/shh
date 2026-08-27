@@ -26,7 +26,8 @@ export type ApiErrorCode =
   | "not_found"
   | "password_required"
   | "rate_limited"
-  | "unauthorized";
+  | "unauthorized"
+  | "unsupported_media_type";
 
 export function fail(
   code: ApiErrorCode,

@@ -148,19 +148,68 @@ test("an unparseable hop count falls back to one proxy", () => {
   });
 });
 
+// A body plus whatever Content-Type the caller declared.
+function jsonReq(contentType: string | null, json: () => unknown): NextRequest {
+  return {
+    headers: new Headers(contentType === null ? {} : { "content-type": contentType }),
+    json: async () => json(),
+  } as unknown as NextRequest;
+}
+
+test("parseJsonBody returns the parsed body on success", async () => {
+  const result = await parseJsonBody(jsonReq("application/json", () => ({ plaintext: "x" })));
+  assert.ok(!isFailure(result));
+  assert.deepEqual(result.body, { plaintext: "x" });
+});
+
 test("parseJsonBody surfaces malformed bodies as a failure, not a throw", async () => {
-  const bad = { json: async () => JSON.parse("{ not json") } as unknown as NextRequest;
-  const result = await parseJsonBody(bad);
+  const result = await parseJsonBody(
+    jsonReq("application/json", () => JSON.parse("{ not json"))
+  );
   assert.ok(isFailure(result));
   assert.equal(result.code, "invalid_json");
   assert.equal(result.status, 400);
 });
 
-test("parseJsonBody returns the parsed body on success", async () => {
-  const good = { json: async () => ({ plaintext: "x" }) } as unknown as NextRequest;
-  const result = await parseJsonBody(good);
-  assert.ok(!isFailure(result));
-  assert.deepEqual(result.body, { plaintext: "x" });
+test("parseJsonBody accepts a charset parameter and odd casing", async () => {
+  for (const contentType of [
+    "application/json; charset=utf-8",
+    "Application/JSON",
+    "  application/json  ",
+    "application/json;charset=UTF-8",
+  ]) {
+    const result = await parseJsonBody(jsonReq(contentType, () => ({ ok: true })));
+    assert.ok(!isFailure(result), `"${contentType}" should be accepted`);
+  }
+});
+
+test("parseJsonBody rejects content types an HTML form can send", async () => {
+  // A cross-origin form cannot set application/json, so requiring it keeps
+  // form-driven CSRF from reaching these routes at all.
+  for (const contentType of [
+    "text/plain",
+    "application/x-www-form-urlencoded",
+    "multipart/form-data; boundary=x",
+    "",
+    null,
+  ]) {
+    const result = await parseJsonBody(jsonReq(contentType, () => ({ plaintext: "x" })));
+    assert.ok(isFailure(result), `"${contentType}" should be rejected`);
+    assert.equal(result.code, "unsupported_media_type");
+    assert.equal(result.status, 415);
+  }
+});
+
+test("parseJsonBody rejects on the header alone, without reading the body", async () => {
+  let bodyRead = false;
+  const result = await parseJsonBody(
+    jsonReq("text/plain", () => {
+      bodyRead = true;
+      return {};
+    })
+  );
+  assert.ok(isFailure(result));
+  assert.equal(bodyRead, false, "a rejected content type should short-circuit");
 });
 
 test("isFailure distinguishes failures from ordinary values", () => {

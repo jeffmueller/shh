@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-// CSP set in middleware so a static `script-src 'self'` from next.config.ts
+// CSP set here rather than in next.config.ts so a static `script-src 'self'`
 // can't accidentally block Next.js's inline RSC hydration scripts (which
 // don't always carry a nonce in Next 16, breaking React hydration).
 //
@@ -23,7 +23,7 @@ const CSP = [
   "frame-ancestors 'none'",
 ].join("; ");
 
-export function middleware() {
+export function proxy() {
   const response = NextResponse.next();
   response.headers.set("Content-Security-Policy", CSP);
   return response;

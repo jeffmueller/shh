@@ -3,35 +3,53 @@
 import { useEffect, useState } from "react";
 import { Eye, Lock, AlertTriangle } from "lucide-react";
 import CopyButton from "./CopyButton";
+import { useUrlFragment } from "./useUrlHash";
 
 type Stage = "loading" | "missing-key" | "not-found" | "ready" | "needs-password" | "revealed" | "error";
 
+/** What the metadata lookup told us. The overall stage is derived from it. */
+type MetaState = "loading" | "not-found" | "ready" | "needs-password" | "error";
+
 export default function RevealView({ id }: { id: string }) {
-  const [stage, setStage] = useState<Stage>("loading");
-  const [hashKey, setHashKey] = useState<string | null>(null);
+  // The decryption key lives in the URL fragment, so it is only readable on
+  // the client. `null` means "not known yet" rather than "absent".
+  const hashKey = useUrlFragment();
+
+  const [metaState, setMetaState] = useState<MetaState>("loading");
   const [password, setPassword] = useState("");
   const [plaintext, setPlaintext] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
+  // Fetching metadata before revealing is what lets us prompt for a password
+  // without spending the single view of a burn-on-read secret.
   useEffect(() => {
-    const k = typeof window !== "undefined" ? window.location.hash.replace(/^#/, "") : "";
-    if (!k) {
-      setStage("missing-key");
-      return;
-    }
-    setHashKey(k);
+    if (!hashKey) return;
+
+    // Guards against a late response landing after the id or key changed.
+    let cancelled = false;
     fetch(`/api/secrets/${encodeURIComponent(id)}/meta`, { cache: "no-store" })
       .then((r) => r.json())
       .then((data) => {
+        if (cancelled) return;
         if (!data.exists) {
-          setStage("not-found");
+          setMetaState("not-found");
           return;
         }
-        setStage(data.hasPassword ? "needs-password" : "ready");
+        setMetaState(data.hasPassword ? "needs-password" : "ready");
       })
-      .catch(() => setStage("error"));
-  }, [id]);
+      .catch(() => {
+        if (!cancelled) setMetaState("error");
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [id, hashKey]);
+
+  // Derived, not stored: one source of truth, and no setState during an effect.
+  const stage: Stage =
+    plaintext !== null ? "revealed" : hashKey === null ? "loading" : hashKey === "" ? "missing-key" : metaState;
 
   async function reveal(e?: React.FormEvent) {
     e?.preventDefault();
@@ -56,12 +74,11 @@ export default function RevealView({ id }: { id: string }) {
         return;
       }
       if (!res.ok) {
-        setStage("not-found");
+        setMetaState("not-found");
         return;
       }
       const data = await res.json();
       setPlaintext(data.plaintext);
-      setStage("revealed");
     } catch {
       setErrorMsg("Something went wrong. Please try again.");
       setSubmitting(false);

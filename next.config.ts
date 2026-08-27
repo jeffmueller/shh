@@ -1,6 +1,6 @@
 import type { NextConfig } from "next";
 
-// CSP is set per-request in middleware.ts, which documents why script-src
+// CSP is set per-request in proxy.ts, which documents why script-src
 // allows 'unsafe-inline'. It is not nonce-based.
 const SECURITY_HEADERS = [
   { key: "Referrer-Policy", value: "no-referrer" },

@@ -60,7 +60,31 @@ export function clientIp(req: NextRequest): string {
   return "unknown";
 }
 
+/**
+ * Parse a JSON request body, requiring the caller to say that is what it is.
+ *
+ * `req.json()` will happily parse a body sent as `text/plain`, and an HTML
+ * form can send exactly that cross-origin — forms cannot set
+ * `application/json`, which is what makes this check a CSRF barrier rather
+ * than mere pedantry.
+ *
+ * The reveal route is not exploitable that way (burning requires the
+ * decryption key, which an attacker holding it would not need CSRF for), but
+ * create is: a malicious page could spend a visitor's rate limit and fill
+ * their database. Cheap to close, so close it.
+ */
 export async function parseJsonBody(req: NextRequest): Promise<{ body: unknown } | ApiFailure> {
+  const contentType = req.headers.get("content-type") || "";
+  // Ignore parameters such as "; charset=utf-8".
+  const mediaType = contentType.split(";")[0].trim().toLowerCase();
+  if (mediaType !== "application/json") {
+    return fail(
+      "unsupported_media_type",
+      "Content-Type must be application/json",
+      415
+    );
+  }
+
   try {
     return { body: await req.json() };
   } catch {

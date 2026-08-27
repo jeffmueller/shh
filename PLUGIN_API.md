@@ -102,6 +102,11 @@ learn *that* a token is required before it has one. Nothing here is secret.
 
 ## `POST /api/v1/secrets` — create
 
+Send `Content-Type: application/json`. It is required, not merely
+conventional — a body without it is rejected with `415` before it is read. An
+HTML form cannot set that header, so requiring it keeps cross-origin forms from
+reaching this endpoint at all.
+
 **Request**
 
 | Field | Type | Required | Notes |
@@ -169,6 +174,7 @@ Every failure is JSON with a stable machine-readable `code` and a human
 
 | Code | Status | Meaning |
 |---|---|---|
+| `unsupported_media_type` | 415 | Missing or wrong `Content-Type`; send `application/json`. |
 | `invalid_json` | 400 | Body wasn't valid JSON. |
 | `plaintext_required` | 400 | Missing or empty `plaintext`. |
 | `invalid_expiry` | 400 | Not one of `expiryOptions[].value`. |
@@ -264,6 +270,7 @@ BODY=$(jq -nc --arg p "$SECRET" --arg e 1h '{plaintext:$p, expiry:$e}')
 
 **Other rules of thumb**
 
+- Always send `Content-Type: application/json` on POSTs; without it you get a `415`.
 - Store the token with the config, not in a world-readable file. Never log it.
 - Don't write plaintext to disk, shell history, or a notification body.
 - Set a timeout (`--max-time 10`). A self-hosted Pi over a VPN can be slow.
