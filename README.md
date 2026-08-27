@@ -54,7 +54,30 @@ npm run dev
 
 Open http://localhost:3000.
 
-## Deployment (Raspberry Pi)
+## Deployment (Docker)
+
+The easiest way to self-host. Multi-arch images (`amd64`, `arm64`) are
+published to GHCR, so a NAS or Raspberry Pi can pull rather than build.
+
+```sh
+cp .env.docker.example .env
+$EDITOR .env                      # set SHH_BASE_URL
+mkdir -p data && chown 1000:1000 data
+docker compose up -d
+```
+
+The app listens on `127.0.0.1:3011` and expects a reverse proxy in front;
+`docker-compose.caddy.yml` is an optional overlay that adds Caddy with
+automatic HTTPS. All configuration is read at runtime, so no rebuild is ever
+needed to change a setting.
+
+See **[DOCKER.md](DOCKER.md)** for proxy requirements, backups, volume
+permissions, and NAS-specific notes. One setting deserves attention:
+`SHH_TRUSTED_PROXY_HOPS` tells the app how many proxies are in front, which is
+what keeps rate limits keyed to the real client rather than to a value the
+client can forge.
+
+## Deployment (Raspberry Pi, without Docker)
 
 One-time:
 ```sh

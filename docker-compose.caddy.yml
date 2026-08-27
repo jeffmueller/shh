@@ -1,0 +1,43 @@
+# Optional HTTPS overlay. Use only if you do NOT already run a reverse proxy
+# on :80/:443 — Caddy will fight anything else bound there.
+#
+#   SHH_DOMAIN=shh.example.org docker compose -f docker-compose.yml -f docker-compose.caddy.yml up -d
+#
+# Caddy obtains and renews a Let's Encrypt certificate automatically. The
+# domain must already resolve to this host, and :80/:443 must be reachable
+# from the internet for the ACME challenge.
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    container_name: shh-caddy
+    restart: unless-stopped
+    depends_on:
+      - shh
+    environment:
+      SHH_DOMAIN: ${SHH_DOMAIN:?set SHH_DOMAIN, e.g. shh.example.org}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"   # HTTP/3
+    volumes:
+      - ./docker/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data      # certificates — losing this re-issues them
+      - caddy_config:/config
+    networks:
+      - shh_net
+
+  shh:
+    networks:
+      - shh_net
+    # Caddy reaches the app over the compose network as http://shh:3000, so the
+    # loopback port published by the base file is redundant here. It is left in
+    # place (harmless, localhost-only) because Compose merges port lists rather
+    # than replacing them.
+
+networks:
+  shh_net:
+
+volumes:
+  caddy_data:
+  caddy_config:

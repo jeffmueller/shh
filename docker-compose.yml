@@ -1,0 +1,79 @@
+# shh — self-destructing secret sharing.
+#
+#   cp .env.docker.example .env
+#   $EDITOR .env          # at minimum, set SHH_BASE_URL
+#   docker compose up -d
+#
+# Named docker-compose.yml rather than compose.yaml because Synology, Unraid,
+# Portainer and friends look for that name.
+
+services:
+  shh:
+    image: ghcr.io/jeffmueller/shh:latest
+    # To build from a checkout instead of pulling:
+    #   docker compose build && docker compose up -d
+    build:
+      context: .
+    container_name: shh
+    restart: unless-stopped
+
+    environment:
+      # Public origin, used to build the shareable /s/<id>#<key> URL that the
+      # API returns. Must be the address people actually visit, not the
+      # container's. Read at runtime, so changing it here and restarting is
+      # enough — no rebuild.
+      # Strongly recommended: without it the origin is derived from the proxy's
+      # X-Forwarded-Proto/Host, which is right behind a correctly configured
+      # proxy but wrong (and silently so) behind a misconfigured one.
+      SHH_BASE_URL: ${SHH_BASE_URL:-}
+
+      # ─── Optional ────────────────────────────────────────────────────
+      # Friendly label reported by /api/v1/info. Defaults to the host.
+      SHH_INSTANCE_NAME: ${SHH_INSTANCE_NAME:-}
+
+      # Bearer tokens for /api/v1 (comma separated). Unset means the API is as
+      # open as the web form. Generate with: openssl rand -base64 32
+      SHH_API_TOKENS: ${SHH_API_TOKENS:-}
+
+      # Secrets one IP may create per hour. 0 disables.
+      SHH_CREATE_RATE_LIMIT: ${SHH_CREATE_RATE_LIMIT:-60}
+
+      # How many reverse proxies sit in front. This is what makes the rate
+      # limits real: it picks the trustworthy end of X-Forwarded-For, which a
+      # client can otherwise pre-seed to get a fresh bucket per request.
+      #   1  one proxy — Caddy/Traefik/nginx/NPM/NAS built-in   (default)
+      #   2  Cloudflare (or similar) in front of your own proxy
+      #   0  no proxy — forwarded headers ignored, limits become global
+      SHH_TRUSTED_PROXY_HOPS: ${SHH_TRUSTED_PROXY_HOPS:-1}
+
+      # Single-value client-IP header from a trusted edge, e.g. CF-Connecting-IP.
+      # Only set this if that edge always overwrites it.
+      SHH_CLIENT_IP_HEADER: ${SHH_CLIENT_IP_HEADER:-}
+
+    volumes:
+      # The SQLite database. Back this up and it is the whole instance.
+      # Must be writable by the container user (uid 1000 by default).
+      - ./data:/data
+
+    # Bound to loopback so an accidental `up` never exposes a secrets app to
+    # the LAN or internet. Suitable for a reverse proxy running on the host.
+    #
+    # If your proxy is itself a container, drop this block entirely and put both
+    # on a shared network — it reaches http://shh:3000 directly, and publishing
+    # a host port becomes unnecessary.
+    ports:
+      - "127.0.0.1:${SHH_HOST_PORT:-3011}:3000"
+
+    # Uncomment if your volume is owned by a different uid/gid — common on
+    # Synology and QNAP. Must match the owner of ./data.
+    # user: "${PUID:-1000}:${PGID:-1000}"
+
+    security_opt:
+      - no-new-privileges:true
+
+    # Optional hardening. Every route is force-dynamic and the only writes go
+    # to the bind-mounted /data, so this should hold — verify on your setup
+    # before enabling it in production.
+    # read_only: true
+    # tmpfs:
+    #   - /tmp

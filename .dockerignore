@@ -1,0 +1,31 @@
+# Build output and dependencies — rebuilt inside the image.
+node_modules
+.next
+out
+build
+
+# Secrets and local state. Critically: `data/` holds the live SQLite database
+# and `.env` holds real tokens; neither must ever be baked into an image.
+data
+.env
+.env*.local
+*.db
+*.db-wal
+*.db-shm
+*.db-journal
+*.pem
+
+# VCS, tooling, docs, and host-specific deployment scripts.
+.git
+.gitignore
+.github
+.vscode
+.DS_Store
+**/.DS_Store
+deployment
+*.tsbuildinfo
+npm-debug.log*
+Dockerfile
+.dockerignore
+docker-compose*.yml
+compose*.yml

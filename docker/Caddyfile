@@ -1,0 +1,24 @@
+# Fronts the shh container with automatic HTTPS.
+#
+# Caddy appends the real client address to X-Forwarded-For and sets
+# X-Forwarded-Proto/Host, which is exactly the one-hop topology shh assumes by
+# default (SHH_TRUSTED_PROXY_HOPS=1). Leave that alone unless you add another
+# proxy — such as Cloudflare — in front of this one, in which case set it to 2.
+
+{$SHH_DOMAIN} {
+	encode zstd gzip
+
+	# HSTS belongs at the TLS terminator. The app emits the rest of its
+	# security headers itself (see next.config.ts).
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Robots-Tag "noindex, nofollow, nosnippet, noarchive"
+	}
+
+	# Secrets are 100 KB at most; the JSON envelope needs a little headroom.
+	request_body {
+		max_size 256KB
+	}
+
+	reverse_proxy shh:3000
+}
