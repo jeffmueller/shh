@@ -24,9 +24,32 @@ if [ -f "$SCRIPT_DIR/.env.deploy" ]; then
 fi
 
 PI_USER=${PI_USER:-"pi"}
-PI_HOST=${PI_HOST:-"192.0.2.10"}
-DOMAIN_NAME=${DOMAIN_NAME:-"shh.example.com"}
+PI_HOST=${PI_HOST:-""}
+DOMAIN_NAME=${DOMAIN_NAME:-""}
+
+# No defaults for these two on purpose: a wrong host or domain silently
+# deploys somewhere unintended, so fail loudly instead.
+require_config() {
+    local missing=0
+    [ -z "$PI_HOST" ]     && { echo "PI_HOST is not set"; missing=1; }
+    [ -z "$DOMAIN_NAME" ] && { echo "DOMAIN_NAME is not set"; missing=1; }
+    if [ "$missing" = 1 ]; then
+        echo ""
+        echo "Set them in deployment/.env.deploy (copy .env.deploy.example) or"
+        echo "pass them as environment variables:"
+        echo "  PI_HOST=192.0.2.10 DOMAIN_NAME=shh.example.com $0"
+        exit 1
+    fi
+}
+
+# The nginx configs are templates; fill in the host-specific parts on upload.
+render_nginx_conf() {
+    sed -e "s|__DOMAIN_NAME__|$DOMAIN_NAME|g" \
+        -e "s|__PI_USER__|$PI_USER|g" "$1"
+}
 APP_PORT=3011
+
+require_config
 
 print_status "═══════════════════════════════════════════════"
 print_status "  shh - Raspberry Pi Setup"
@@ -45,8 +68,8 @@ if [[ ! $confirm =~ ^[Yy]$ ]]; then
 fi
 
 print_status "Uploading nginx configs..."
-scp -q "$SCRIPT_DIR/conf/nginx-pre-ssl.conf" "$PI_USER@$PI_HOST":~/shh-nginx-pre-ssl.conf
-scp -q "$SCRIPT_DIR/conf/nginx.conf" "$PI_USER@$PI_HOST":~/shh-nginx-full.conf
+render_nginx_conf "$SCRIPT_DIR/conf/nginx-pre-ssl.conf" | ssh "$PI_USER@$PI_HOST" 'cat > ~/shh-nginx-pre-ssl.conf'
+render_nginx_conf "$SCRIPT_DIR/conf/nginx.conf"         | ssh "$PI_USER@$PI_HOST" 'cat > ~/shh-nginx-full.conf' 
 
 ssh "$PI_USER@$PI_HOST" "bash -s" << ENDSSH
 set -e

@@ -22,9 +22,11 @@ yarn-error.log*
 *.pem
 .vscode
 
-# env
+# env — only *.example templates are ever committed. The old rules missed
+# deployment/.env.deploy, which holds a real host and username.
 .env
-.env*.local
+.env.*
+!.env*.example
 
 # data
 /data

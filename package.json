@@ -1,7 +1,30 @@
 {
   "name": "shh",
   "version": "0.1.0",
+  "description": "Self-destructing secret sharing. Self-hosted, encrypted at rest, keys never touch the server.",
+  "license": "MIT",
+  "author": "Jeff Mueller",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jeffmueller/shh.git"
+  },
+  "homepage": "https://github.com/jeffmueller/shh#readme",
+  "bugs": {
+    "url": "https://github.com/jeffmueller/shh/issues"
+  },
+  "keywords": [
+    "secret-sharing",
+    "one-time-secret",
+    "self-hosted",
+    "encryption",
+    "nextjs",
+    "sqlite",
+    "docker"
+  ],
   "private": true,
+  "engines": {
+    "node": ">=20.9.0"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -13,7 +36,7 @@
     "bcryptjs": "^2.4.3",
     "better-sqlite3": "^12.8.0",
     "lucide-react": "^1.7.0",
-    "next": "16.2.5",
+    "next": "16.3.3",
     "react": "19.2.4",
     "react-dom": "19.2.4"
   },
@@ -24,7 +47,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
-    "eslint-config-next": "16.2.5",
+    "eslint-config-next": "16.3.3",
     "tailwindcss": "^4",
     "typescript": "^5"
   }

@@ -24,8 +24,29 @@ if [ -f "$SCRIPT_DIR/.env.deploy" ]; then
 fi
 
 PI_USER=${PI_USER:-"pi"}
-PI_HOST=${PI_HOST:-"192.0.2.10"}
-DOMAIN_NAME=${DOMAIN_NAME:-"shh.example.com"}
+PI_HOST=${PI_HOST:-""}
+DOMAIN_NAME=${DOMAIN_NAME:-""}
+
+# No defaults for these two on purpose: a wrong host or domain silently
+# deploys somewhere unintended, so fail loudly instead.
+require_config() {
+    local missing=0
+    [ -z "$PI_HOST" ]     && { echo "PI_HOST is not set"; missing=1; }
+    [ -z "$DOMAIN_NAME" ] && { echo "DOMAIN_NAME is not set"; missing=1; }
+    if [ "$missing" = 1 ]; then
+        echo ""
+        echo "Set them in deployment/.env.deploy (copy .env.deploy.example) or"
+        echo "pass them as environment variables:"
+        echo "  PI_HOST=192.0.2.10 DOMAIN_NAME=shh.example.com $0"
+        exit 1
+    fi
+}
+
+# The nginx configs are templates; fill in the host-specific parts on upload.
+render_nginx_conf() {
+    sed -e "s|__DOMAIN_NAME__|$DOMAIN_NAME|g" \
+        -e "s|__PI_USER__|$PI_USER|g" "$1"
+}
 RESTART_SERVICE=true
 UPDATE_NGINX=false
 
@@ -48,6 +69,8 @@ while [[ $# -gt 0 ]]; do
         *)               print_error "Unknown option: $1"; show_usage; exit 1 ;;
     esac
 done
+
+require_config
 
 print_status "═══════════════════════════════════════════════"
 print_status "  shh - Deploy to Raspberry Pi"
@@ -225,7 +248,7 @@ print_success "Upload complete"
 
 if [ "$UPDATE_NGINX" = true ]; then
     print_status "Updating nginx config..."
-    scp -q "$SCRIPT_DIR/conf/nginx.conf" "$PI_USER@$PI_HOST":~/shh-nginx.conf
+    render_nginx_conf "$SCRIPT_DIR/conf/nginx.conf" | ssh "$PI_USER@$PI_HOST" 'cat > ~/shh-nginx.conf' 
     ssh "$PI_USER@$PI_HOST" << 'ENDSSH'
 sudo mv ~/shh-nginx.conf /etc/nginx/sites-available/shh
 

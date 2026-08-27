@@ -1,4 +1,4 @@
-import { NextResponse, type NextRequest } from "next/server";
+import { NextResponse } from "next/server";
 
 // CSP set in middleware so a static `script-src 'self'` from next.config.ts
 // can't accidentally block Next.js's inline RSC hydration scripts (which
@@ -23,7 +23,7 @@ const CSP = [
   "frame-ancestors 'none'",
 ].join("; ");
 
-export function middleware(_request: NextRequest) {
+export function middleware() {
   const response = NextResponse.next();
   response.headers.set("Content-Security-Policy", CSP);
   return response;

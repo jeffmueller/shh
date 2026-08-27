@@ -15,7 +15,7 @@ Self-destructing secret sharing. Like OneTimeSecret, self-hosted on a Raspberry 
 - **DB-only compromise**: nothing is recoverable. Encryption keys are not in the DB.
 - **DB + URL**: the secret is recoverable. If a password was set, the password must also be cracked (bcrypt, 12 rounds). For high-stakes secrets, set a strong password.
 - **Server compromise during reveal**: an attacker controlling the server can intercept the decrypted plaintext. This app cannot defend against that.
-- **XSS**: secrets are rendered as text inside `<pre>` (React auto-escapes). CSP forbids inline scripts. There is no rich-text rendering.
+- **XSS**: secrets are rendered as text inside `<pre>`, which React auto-escapes, and there is no rich-text rendering — that, not CSP, is the actual defense. The CSP allows `'unsafe-inline'` for scripts because Next 16's hydration scripts don't reliably carry a nonce; it is there to restrict what *external* resources can load (`default-src 'self'`, `object-src 'none'`, `frame-ancestors 'none'`), not to stop inline execution. See `middleware.ts`.
 - **Link-preview burn**: viewing requires a click, so chat clients that prefetch URLs (Slack, iMessage, etc.) won't burn first-view secrets.
 - **On-device cache**: the service worker's cache is opt-in, not opt-out. Only `/_next/static/*` (immutable build output) and `/icons/*` are ever written to CacheStorage. `/s/*`, `/created/*` and `/api/*` are hard-denied before any caching strategy runs, and *no* navigation response is cached — so a revealed secret can't be replayed from disk after it self-destructs.
 
@@ -128,3 +128,15 @@ both surfaces share one implementation (`lib/secrets.ts`) so they can't drift.
 - Reveal attempts: 10 per IP+id per 5 minutes, shared across the web UI and API.
 - Secret creation: 60 per IP per hour (`SHH_CREATE_RATE_LIMIT`, `0` disables).
 - Plain text only — no file upload, no markdown.
+
+## Contributing and security
+
+Bug reports and pull requests are welcome. CI runs lint, typecheck, build, and
+a Docker smoke test on every PR.
+
+Found a security issue? Please **don't** open a public issue — see
+[SECURITY.md](SECURITY.md) for private reporting.
+
+## License
+
+[MIT](LICENSE) © Jeff Mueller
