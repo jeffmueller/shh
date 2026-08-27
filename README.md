@@ -70,8 +70,38 @@ Each deploy:
 
 Nginx config and systemd unit live in `deployment/`. Service runs on port 3011.
 
+## API
+
+There is a versioned HTTP API at `/api/v1` for programmatic clients — an
+Omarchy plugin, a CLI, a script. See **[PLUGIN_API.md](PLUGIN_API.md)** for the
+full contract.
+
+```sh
+curl -sS https://shh.example.org/api/v1/info          # capability discovery
+curl -sS -X POST https://shh.example.org/api/v1/secrets \
+     -H 'Content-Type: application/json' \
+     -d '{"plaintext":"hunter2","expiry":"1h"}'       # -> { url, id, key, ... }
+```
+
+Unlike the browser route, create returns a complete shareable `url`: a desktop
+client has no `window.location`, and an instance behind a proxy can't infer its
+own public origin. Set `SHH_BASE_URL` so it doesn't have to guess.
+
+Because anyone can self-host shh, a client must treat the server address as
+user configuration and validate it against `/api/v1/info` — never hardcode one.
+
+Auth is optional and off by default. Set `SHH_API_TOKENS` and `/api/v1`
+requires `Authorization: Bearer <token>`; the browser routes stay open either
+way, since the web UI has nowhere to hide a token. All configuration is read at
+runtime, so changing it in the systemd `EnvironmentFile` and restarting is
+enough — no rebuild. See `.env.example` for the full list.
+
+The routes under `/api/secrets` are internal to the web UI and unversioned;
+both surfaces share one implementation (`lib/secrets.ts`) so they can't drift.
+
 ## Limits
 
 - Plaintext: 100 KB max.
-- Reveal attempts: 10 per IP+id per 5 minutes.
+- Reveal attempts: 10 per IP+id per 5 minutes, shared across the web UI and API.
+- Secret creation: 60 per IP per hour (`SHH_CREATE_RATE_LIMIT`, `0` disables).
 - Plain text only — no file upload, no markdown.
