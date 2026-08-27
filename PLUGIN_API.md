@@ -222,6 +222,11 @@ alternating between the two surfaces. Successful creates carry
 `X-RateLimit-Limit` and `X-RateLimit-Remaining`; `429`s carry `Retry-After` in
 seconds. Back off rather than retrying in a tight loop.
 
+Both limits key on the client IP taken from the trustworthy end of
+`X-Forwarded-For` — see `SHH_TRUSTED_PROXY_HOPS`. An operator who sets that
+wrong (or runs unproxied) gets limits that are global or bypassable, so a
+client shouldn't treat a missing `429` as proof it may hammer an instance.
+
 The reference nginx config adds its own coarse `5r/s` per-IP limit on `/api`.
 
 ---
@@ -348,6 +353,8 @@ restart. No rebuild needed.
 | `SHH_INSTANCE_NAME` | the host | Label reported by `/api/v1/info`. |
 | `SHH_API_TOKENS` | *(unset — auth off)* | Comma/whitespace-separated bearer tokens. |
 | `SHH_CREATE_RATE_LIMIT` | `60` | Creates per IP per hour. `0` disables. |
+| `SHH_TRUSTED_PROXY_HOPS` | `1` | Reverse proxies in front; picks the trustworthy end of `X-Forwarded-For`. |
+| `SHH_CLIENT_IP_HEADER` | — | Trusted single-value client-IP header, e.g. `cf-connecting-ip`. |
 | `SHH_DB_PATH` | `./data/secrets.db` | SQLite location. |
 
 Generate a token with `openssl rand -base64 32`.

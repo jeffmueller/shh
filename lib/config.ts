@@ -102,6 +102,31 @@ export function createRateLimit(): number {
   return positiveInt(runtimeEnv("SHH_CREATE_RATE_LIMIT"), 60);
 }
 
+/**
+ * How many reverse proxies sit between the client and this app.
+ *
+ * Used to find the trustworthy end of `X-Forwarded-For` — see `clientIp`.
+ * `1` (the default) suits the normal single-proxy topology: nginx, Traefik,
+ * Caddy, Nginx Proxy Manager, a NAS's built-in reverse proxy. Behind
+ * Cloudflare *and* your own proxy it is `2`. `0` disables trust in forwarded
+ * headers, which is only correct when the app isn't publicly reachable.
+ */
+export function trustedProxyHops(): number {
+  return positiveInt(runtimeEnv("SHH_TRUSTED_PROXY_HOPS"), 1);
+}
+
+/**
+ * Single-value header naming the real client, written by a trusted edge —
+ * `CF-Connecting-IP` behind Cloudflare, `True-Client-IP` behind others.
+ * Takes precedence over `X-Forwarded-For` when set. Empty means unset.
+ *
+ * Only set this if the edge in question *always* overwrites the header;
+ * otherwise a client can forge it.
+ */
+export function clientIpHeader(): string {
+  return runtimeEnv("SHH_CLIENT_IP_HEADER").trim().toLowerCase();
+}
+
 /** Expiry catalogue in the shape `/api/v1/info` publishes it. */
 export function expiryCatalogue() {
   return EXPIRY_OPTIONS.map((o) => ({
