@@ -1,0 +1,58 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+
+import { hashPassword, verifyPassword } from "@/lib/password";
+
+// bcrypt at 12 rounds is deliberately slow, so this file keeps hashing to a
+// minimum and shares hashes between assertions where it can.
+
+test("verifies a correct password and rejects a wrong one", async () => {
+  const hash = await hashPassword("correct horse");
+
+  assert.equal(await verifyPassword("correct horse", hash), true);
+  assert.equal(await verifyPassword("Correct Horse", hash), false);
+  assert.equal(await verifyPassword("correct horse ", hash), false);
+  assert.equal(await verifyPassword("", hash), false);
+});
+
+test("produces a salted bcrypt hash, never the password itself", async () => {
+  const password = "correct horse";
+  const a = await hashPassword(password);
+  const b = await hashPassword(password);
+
+  assert.match(a, /^\$2[aby]\$12\$/, "expected a 12-round bcrypt hash");
+  assert.notEqual(a, b, "identical passwords must not produce identical hashes");
+  assert.equal(a.includes(password), false);
+
+  // Both salts verify the same password.
+  assert.equal(await verifyPassword(password, b), true);
+});
+
+test("a malformed hash returns false instead of throwing", async () => {
+  // Defensive: a corrupted row must fail closed, not crash the reveal route.
+  for (const hash of ["", "not-a-hash", "$2a$", "$2a$12$tooshort"]) {
+    assert.equal(await verifyPassword("anything", hash), false);
+  }
+});
+
+test("bcrypt ignores input past 72 bytes — a known limit", async () => {
+  // Documented, not endorsed. lib/secrets accepts passwords up to 256
+  // characters, but bcrypt silently truncates at 72 bytes, so anything beyond
+  // that contributes no security. 72 bytes is ample entropy, so this pins the
+  // real behaviour rather than pretending the advertised limit is meaningful.
+  //
+  // If the project moves to a KDF without this limit, or starts pre-hashing,
+  // this test should start failing and be updated deliberately.
+  const first72 = "a".repeat(72);
+  const hash = await hashPassword(first72);
+
+  assert.equal(await verifyPassword(first72 + "IGNORED-TAIL", hash), true);
+  assert.equal(await verifyPassword("a".repeat(71), hash), false);
+});
+
+test("multi-byte characters count toward the 72-byte limit as bytes", async () => {
+  // "é" is two bytes in UTF-8, so 36 of them reach the ceiling.
+  const atLimit = "é".repeat(36);
+  const hash = await hashPassword(atLimit);
+  assert.equal(await verifyPassword(atLimit + "é", hash), true);
+});

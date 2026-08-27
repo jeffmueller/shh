@@ -8,7 +8,7 @@ on:
 
 jobs:
   check:
-    name: Lint, typecheck, build
+    name: Lint, typecheck, test, build
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -23,6 +23,7 @@ jobs:
 
       - run: npx eslint
       - run: npx tsc --noEmit
+      - run: npm test
       - run: npm run build
 
       - name: Audit production dependencies
