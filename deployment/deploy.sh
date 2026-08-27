@@ -187,8 +187,19 @@ echo "Replacing macOS binary in standalone bundle..."
 REPLACED=0
 for bsq_dir in ~/shh/app/.next/node_modules/better-sqlite3-*/; do
     if [ -d "$bsq_dir" ]; then
-        cp -f "$NATIVE_BIN" "${bsq_dir}build/Release/better_sqlite3.node"
-        echo "  -> ${bsq_dir}"
+        BSQ_DEST="${bsq_dir}build/Release/better_sqlite3.node"
+        # npm unpacks from its content-addressable cache using hardlinks, so
+        # the standalone copy and node_modules copy can already be the SAME
+        # inode. cp then fails with "are the same file" -- which under `set -e`
+        # aborted the whole deploy before the service restart below, leaving
+        # the old process running against new on-disk assets (broken CSS).
+        # The binary is already correct in that case, so treat it as success.
+        if [ "$NATIVE_BIN" -ef "$BSQ_DEST" ]; then
+            echo "  -> ${bsq_dir} (already correct; shared inode)"
+        else
+            cp -f "$NATIVE_BIN" "$BSQ_DEST"
+            echo "  -> ${bsq_dir}"
+        fi
         REPLACED=$((REPLACED+1))
     fi
 done
